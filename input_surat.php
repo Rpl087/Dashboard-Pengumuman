@@ -17,9 +17,14 @@ require 'config.php';
             border: 2px dashed #3b82f6;
             border-radius: 0.5rem;
             transition: all 0.3s;
+            padding: 20px;
+            text-align: center;
         }
         .dropzone:hover {
             background-color: #f0f7ff;
+        }
+        .hidden {
+            display: none;
         }
     </style>
 </head>
@@ -41,6 +46,8 @@ require 'config.php';
     </div>
 
     <script>
+        let extractedData = {}; // Variabel untuk menyimpan data yang diekstrak
+
         document.getElementById('dropZone').addEventListener('click', () => {
             document.getElementById('fileInput').click();
         });
@@ -50,7 +57,6 @@ require 'config.php';
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (file && file.type === 'application/pdf') {
-                // Proses file PDF dan ekstrak data
                 extractPdfData(file);
             } else {
                 alert('Hanya file PDF yang didukung');
@@ -58,62 +64,59 @@ require 'config.php';
         }
 
         async function extractPdfData(file) {
-    const fileReader = new FileReader();
+            const fileReader = new FileReader();
 
-    fileReader.onload = async function() {
-        const typedArray = new Uint8Array(this.result);
-        const pdf = await pdfjsLib.getDocument(typedArray).promise;
+            fileReader.onload = async function() {
+                const typedArray = new Uint8Array(this.result);
+                const pdf = await pdfjsLib.getDocument(typedArray).promise;
 
-        let text = '';
-        const maxPages = Math.min(pdf.numPages, 3); // Batasi jumlah halaman yang diproses
+                let text = '';
+                const maxPages = Math.min(pdf.numPages, 3); // Batasi jumlah halaman yang diproses
 
-        for (let i = 1; i <= maxPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            const strings = content.items.map(item => item.str);
-            text += strings.join(' ') + '\n';
+                for (let i = 1; i <= maxPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    const strings = content.items.map(item => item.str);
+                    text += strings.join(' ') + '\n';
+                }
+
+                // Parse teks untuk mengekstrak metadata
+                extractedData = parsePdfText(text); // Simpan data yang diekstrak
+                displayMetadata(extractedData);
+            };
+
+            fileReader.onerror = function(error) {
+                console.error('Error reading PDF file:', error);
+                alert('Terjadi kesalahan saat membaca file PDF.');
+            };
+
+            fileReader.readAsArrayBuffer(file);
         }
 
-        // Parse teks untuk mengekstrak metadata
-        const extractedData = parsePdfText(text);
-        displayMetadata(extractedData);
-    };
+        function parsePdfText(text) {
+            // Implementasi sederhana parser teks PDF
+            const data = {
+                Tanggal_Surat: extractValue(text, /(?:Tanggal|Tgl)\s*[:.]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i),
+                No_Surat: extractValue(text, /(?:Nomor|No\.?)\s*[:.]?\s*([A-Za-z0-9\/\.\-]+)/i),
+                Jenis_Surat: extractValue(text, /(?:Jenis|Tipe)\s*[:.]?\s*([A-Za-z\s]+)/i) || 'Surat Biasa',
+                Perihal: extractValue(text, /(?:Perihal|/Hal)\s*[:.]?\s*([^\n\r]+)/i),
+                Ringkasan: extractSummary(text),
+                Pengirim: extractValue(text, /(?:Dari|Pengirim)\s*[:.]?\s*([^\n\r]+)/i),
+                Penerima: extractValue(text, /(?:Kepada|Penerima|Yth.|Kepada Yth)\s*[:.]?\s*([^\n\r]+)/i),
+            };
 
-    fileReader.onerror = function(error) {
-        console.error('Error reading PDF file:', error);
-        alert('Terjadi kesalahan saat membaca file PDF.');
-    };
+            return data;
+        }
 
-    fileReader.readAsArrayBuffer(file);
-}
+        function extractValue(text, regex) {
+            const match = text.match(regex);
+            return match ? match[1].trim() : '';
+        }
 
-function parsePdfText(text) {
-    // Implementasi sederhana parser teks PDF
-    const data = {
-        Tanggal_Surat: extractValue(text, /(?:Tanggal|Tgl)\s*[:.]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i),
-        No_Surat: extractValue(text, /(?:Nomor|No\.?)\s*[:.]?\s*([A-Za-z0-9\/\.\-]+)/i),
-        Jenis_Surat: extractValue(text, /(?:Jenis|Tipe)\s*[:.]?\s*([A-Za-z\s]+)/i) || 'Surat Biasa',
-        No_Agenda: extractValue(text, /(?:Agenda|No\.?\s*Agenda)\s*[:.]?\s*([A-Za-z0-9\/\.\-]+)/i),
-        Perihal: extractValue(text, /(?:Perihal|/Hal)\s*[:.]?\s*([^\n\r]+)/i),
-        Ringkasan: extractSummary(text),
-        Pengirim_Eksternal: extractValue(text, /(?:Dari|Pengirim)\s*[:.]?\s*([^\n\r]+)/i),
-        Pengirim_Internal: extractValue(text, /(?:Internal|Bidang|Divisi)\s*[:.]?\s*([^\n\r]+)/i),
-        Penerima: extractValue(text, /(?:Kepada|Penerima)\s*[:.]?\s*([^\n\r]+)/i),
-    };
-
-    return data;
-}
-
-function extractValue(text, regex) {
-    const match = text.match(regex);
-    return match ? match[1].trim() : '';
-}
-
-function extractSummary(text) {
-    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
-    return sentences.slice(0, 3).join('. ') + (sentences.length > 3 ? '...' : '');
-}
-
+        function extractSummary(text) {
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            return sentences.slice(0, 3).join('. ') + (sentences.length > 3 ? '...' : '');
+        }
 
         function displayMetadata(data) {
             const metadataTable = document.getElementById('metadataTable');
@@ -124,78 +127,25 @@ function extractSummary(text) {
                 <p>No Agenda: ${data.No_Agenda}</p>
                 <p>Perihal: ${data.Perihal}</p>
                 <p>Ringkasan: ${data.Ringkasan}</p>
-                <p>Pengirim Eksternal: ${data.Pengirim_Eksternal}</p>
-                <p>Pengirim Internal: ${data.Pengirim_Internal}</p>
+                <p>Pengirim: ${data.Pengirim}</p>
                 <p>Penerima: ${data.Penerima}</p>
             `;
             document.getElementById('resultSection').classList.remove('hidden');
         }
 
-        let extractedData = {}; // Variabel untuk menyimpan data yang diekstrak
+        document.getElementById('saveToDbBtn').addEventListener('click', async () => {
+            const response = await fetch('saving.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(extractedData) // Kirim data yang diekstrak
+            });
 
-document.getElementById('dropZone').addEventListener('click', () => {
-    document.getElementById('fileInput').click();
-});
-
-document.getElementById('fileInput').addEventListener('change', handleFileSelect);
-
-function handleFileSelect(event) {
-    const file = event.target.files[0];
-    if (file && file.type === 'application/pdf') {
-        document.getElementById('loading').classList.remove('hidden');
-        extractPdfData(file);
-    } else {
-        alert('Hanya file PDF yang didukung');
-    }
-}
-
-async function extractPdfData(file) {
-    const fileReader = new FileReader();
-
-    fileReader.onload = async function() {
-        const typedArray = new Uint8Array(this.result);
-        const pdf = await pdfjsLib.getDocument(typedArray).promise;
-
-        let text = '';
-        const maxPages = Math.min(pdf.numPages, 3); // Batasi jumlah halaman yang diproses
-
-        for (let i = 1; i <= maxPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            const strings = content.items.map(item => item.str);
-            text += strings.join(' ') + '\n';
-        }
-
-        // Parse teks untuk mengekstrak metadata
-        extractedData = parsePdfText(text); // Simpan data yang diekstrak
-        displayMetadata(extractedData);
-        document.getElementById('loading').classList.add('hidden'); // Sembunyikan loading setelah selesai
-    };
-
-    fileReader.onerror = function(error) {
-        console.error('Error reading PDF file:', error);
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('dbStatus').textContent = 'Gagal membaca file PDF: ' + error.message;
-        document.getElementById('dbStatus').classList.add('text-error');
-        document.getElementById('dbStatus').classList.remove('hidden');
-    };
-
-    fileReader.readAsArrayBuffer(file);
-}
-
-document.getElementById('saveToDbBtn').addEventListener('click', async () => {
-    const response = await fetch('saving.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(extractedData) // Kirim data yang diekstrak
-    });
-
-    const result = await response.text();
-    document.getElementById('dbStatus').innerText = result;
-    document.getElementById('dbStatus').classList.remove('hidden');
-});
+            const result = await response.text();
+            document.getElementById('dbStatus').innerText = result;
+            document.getElementById('dbStatus').classList.remove('hidden');
+        });
     </script>
 </body>
 </html>

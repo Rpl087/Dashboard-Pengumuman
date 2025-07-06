@@ -8,16 +8,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $tanggal_surat = $data['Tanggal_Surat'];
     $no_surat = $data['No_Surat'];
     $jenis_surat = $data['Jenis_Surat'];
-    $no_agenda = $data['No_Agenda'];
     $perihal = $data['Perihal'];
     $ringkasan = $data['Ringkasan'];
-    $pengirim_eksternal = $data['Pengirim_Eksternal'];
-    $pengirim_internal = $data['Pengirim_Internal'];
+    $pengirim = $data['Pengirim'];
     $penerima = $data['Penerima'];
 
     // Simpan data ke database
-    $sql = "INSERT INTO Surat (Tanggal_Diinput, Tanggal_Surat, No_Surat, Jenis_Surat, No_Agenda, Perihal, Ringkasan, Pengirim_Eksternal, Pengirim_Internal, Penerima)
-            VALUES ('$tanggal_diinput', '$tanggal_surat', '$no_surat', '$jenis_surat', '$no_agenda', '$perihal', '$ringkasan', '$pengirim_eksternal', '$pengirim_internal', '$penerima')";
+    $sql = "INSERT INTO Surat (Tanggal_Diinput, Tanggal_Surat, No_Surat, Jenis_Surat, Perihal, Ringkasan, Pengirim, Penerima)
+            VALUES ('$tanggal_diinput', '$tanggal_surat', '$no_surat', '$jenis_surat', '$perihal', '$ringkasan', '$pengirim', '$penerima')";
 
     if ($conn->query($sql) === TRUE) {
         echo "Data berhasil disimpan.";

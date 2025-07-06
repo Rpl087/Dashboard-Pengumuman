@@ -19,14 +19,36 @@ require 'config.php';
     </div>
     
     <div class="pengumuman-list">
-        <table>
-            <tr>
-                <td>Pengumuman 1</td>
-            </tr>
-            <tr>
-                <td>Pengumuman 2</td>
-            </tr>
+        <?php if ($result->num_rows > 0): ?>
+    <div class="container">
+        <h2>Daftar Surat Terupload</h2>
+        <table class="surat-table">
+            <thead>
+                <tr>
+                    <th>Tanggal Upload</th>
+                    <th>Tanggal Surat</th>
+                    <th>No. Surat</th>
+                    <th>Jenis Surat</th>
+                    <th>Perihal</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php while($row = $result->fetch_assoc()): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($row['Tanggal_Diinput']); ?></td>
+                    <td><?php echo htmlspecialchars($row['Tanggal_Surat']); ?></td>
+                    <td><?php echo htmlspecialchars($row['No_Surat']); ?></td>
+                    <td><?php echo htmlspecialchars($row['Jenis_Surat']); ?></td>
+                    <td><?php echo htmlspecialchars($row['Perihal']); ?></td>
+                </tr>
+                <?php endwhile; ?>
+            </tbody>
         </table>
     </div>
+    <?php else: ?>
+    <div class="container">
+        <p>Belum ada surat yang diupload.</p>
+    </div>
+    <?php endif; ?>
 </body>
 </html>
